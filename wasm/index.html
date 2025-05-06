@@ -10,15 +10,9 @@
   (async () => {
     delete WebAssembly.instantiateStreaming;
 
-    await wasm_bindgen('pkg/wirefilter_wasm_bg.wasm');
+    await wasm_bindgen("pkg/wirefilter_wasm_bg.wasm");
 
-    const scheme = new wasm_bindgen.Scheme({
-      ip: 'Ip',
-      str: 'Bytes',
-      bytes: 'Bytes',
-      int: 'Int',
-      bool: 'Bool'
-    });
+    const scheme = new wasm_bindgen.WasmScheme();
 
     function updateOutput() {
       try {
@@ -32,6 +26,6 @@
 
     updateOutput();
 
-    input.addEventListener('keyup', updateOutput);
+    input.addEventListener("keyup", updateOutput);
   })().catch(handleError);
 </script>
