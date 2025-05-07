@@ -89,6 +89,7 @@ Looks like the target binary is not instrumented!
 
 Try deleting the compiled binary and re-building with `cargo afl build`.
 
-## Licensing
+## TODO
 
-Licensed under the MIT license. See the [LICENSE](LICENSE) file for details.
+- Map types are not parsing correctly. e.g. `http.request.headers.names[0] == "Content-Type"` is failing.
+- Add support for all fields

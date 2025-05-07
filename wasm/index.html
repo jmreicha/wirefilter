@@ -97,6 +97,16 @@
         box-sizing: border-box;
       }
 
+      #output.success {
+        background-color: rgba(34, 197, 94, 0.1);
+        color: #22c55e;
+      }
+
+      #output.error {
+        background-color: rgba(255, 58, 48, 0.1);
+        color: #ff3a30;
+      }
+
       /* Cloudflare logo styling */
       .cf-logo {
         display: flex;
@@ -210,20 +220,43 @@
       <div class="instructions">
         <div class="instructions-toggle">Show usage instructions</div>
         <div class="instructions-content">
+          <h3>What is Wirefilter?</h3>
+          <p>Wirefilter is a powerful filter expression engine using Wireshark-like syntax. It allows you to write complex filtering rules to match against network traffic, HTTP requests, and other data points. This playground lets you test filter expressions against Cloudflare's filter engine - the same technology that powers Cloudflare Firewall Rules, Workers, and other filtering capabilities across the Cloudflare platform.</p>
+
+          <p>the Rules language allows you to precisely target HTTP requests with a syntax and semantics familiar to security engineers.</p>
+
           <h3>Filter Syntax</h3>
-          <p>Enter a filter expression using the Wireshark-like syntax. Examples:</p>
-          <div class="examples">
-            <div class="example">http.host == "example.com"</div>
-            <div class="example">http.host contains "cloudflare"</div>
-            <div class="example">ip.src == 192.168.1.1</div>
-            <div class="example">tcp.port in {80 443}</div>
-            <div class="example">http.request.uri.path ~ "^/api/.*"</div>
-          </div>
+          <p>Enter a filter expression using the Wireshark-like syntax. See the <a href="https://developers.cloudflare.com/ruleset-engine/rules-language/expressions/" target="_blank">Cloudflare documentation</a> for more details.</p>
+          </p>
 
           <h3>Transformation Functions</h3>
-          <p>Use transformation functions to modify field values:</p>
+          <p>Use transformation functions to modify field values.</p>
+
+          <h4>String Functions</h4>
           <div class="examples">
             <div class="example">lower(http.host) == "example.com"</div>
+            <div class="example">upper(http.host) == "EXAMPLE.COM"</div>
+            <div class="example">len(http.user_agent) > 100</div>
+            <div class="example">concat(http.host, http.user_agent) contains "Mozilla"</div>
+            <div class="example">starts_with(http.request.uri.path, "/api")</div>
+            <div class="example">ends_with(http.host, ".com")</div>
+            <div class="example">substring(http.request.uri.path, 0, 4) == "/api"</div>
+            <div class="example">regex_replace(http.host, "\\.", "-") == "example-com"</div>
+            <div class="example">remove_bytes(http.host, ".") == "examplecom"</div>
+            <div class="example">to_string(tcp.port) == "443"</div>
+            <div class="example">url_decode(http.request.uri.query) contains "param"</div>
+            <div class="example">decode_base64(http.request.headers["authorization"]) contains "username"</div>
+          </div>
+
+          <h4>IP Functions</h4>
+          <div class="examples">
+            <div class="example">cidr(ip.src, "192.168.0.0/16")</div>
+          </div>
+
+          <h4>Logical Functions</h4>
+          <div class="examples">
+            <div class="example">any(cf.bot_management.verified_bot, cf.client.bot)</div>
+            <div class="example">all(ssl, http.host contains "secure")</div>
           </div>
 
           <h3>Operators and grouping symbols</h3>
@@ -243,6 +276,13 @@
             <li><code>!</code> <code>not</code> - Logical NOT</li>
           </ul>
         </div>
+      </div>
+
+      <!-- Footer added below the instructions section -->
+      <div class="footer-section">
+        <hr>
+        <p>&copy; Practical System Administration | <a href="https://github.com/jmreicha/cloudflare-playground" target="_blank">GitHub</a> | <a href="https://www.linkedin.com/in/joshreichardt/" target="_blank">Contact</a></p>
+        <p class="version">Wirefilter Playground v1.0.0 | Last updated: May 2025</p>
       </div>
     </div>
 
@@ -275,9 +315,11 @@
       // Handle input validation and updates
       function handleError(err) {
         console.error(err);
-        output.value = err.toString();
+        output.textContent = err.toString();
         statusIcon.classList.remove("success");
         statusIcon.classList.add("error");
+        output.classList.remove("success");
+        output.classList.add("error");
       }
 
       (async () => {
@@ -292,15 +334,13 @@
             let res = scheme.parse(input.value);
             console.log(res);
 
-            // Check if the result is an empty object
-            if (JSON.stringify(res) === "{}") {
-              output.value = "success!";
-            } else {
-              output.value = JSON.stringify(res, null, 2);
-            }
+            // Always show "success!" when expression parses successfully
+            output.textContent = "success!";
 
             statusIcon.classList.remove("error");
             statusIcon.classList.add("success");
+            output.classList.remove("error");
+            output.classList.add("success");
           } catch (err) {
             handleError(err);
           }
@@ -312,5 +352,37 @@
         input.addEventListener("input", updateOutput);
       })().catch(handleError);
     </script>
+
+    <style>
+      /* Footer styling */
+      .footer-section {
+        padding-top: 15px;
+        text-align: center;
+        color: var(--cf-gray);
+        font-size: 14px;
+      }
+
+      .footer-section a {
+        color: var(--cf-blue);
+        text-decoration: none;
+      }
+
+      .footer-section a:hover {
+        text-decoration: underline;
+      }
+
+      .footer-section .version {
+        margin-top: 5px;
+        font-size: 12px;
+        color: #999;
+      }
+
+      .footer-section hr {
+        border: 0;
+        height: 1px;
+        background-color: #e5e7eb;
+        margin-bottom: 15px;
+      }
+    </style>
   </body>
 </html>
