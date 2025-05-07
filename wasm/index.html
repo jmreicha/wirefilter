@@ -1,31 +1,316 @@
-<input id="input" placeholder="filter" /><br />
-<output for="input" id="output" style="white-space: pre; font-family: monospace"></output>
-<script src="pkg/wirefilter_wasm.js"></script>
-<script>
-  function handleError(err) {
-    console.error(err);
-    output.value = err.toString();
-  }
-
-  (async () => {
-    delete WebAssembly.instantiateStreaming;
-
-    await wasm_bindgen("pkg/wirefilter_wasm_bg.wasm");
-
-    const scheme = new wasm_bindgen.WasmScheme();
-
-    function updateOutput() {
-      try {
-        let res = scheme.parse(input.value);
-        console.log(res);
-        output.value = JSON.stringify(res, null, 2);
-      } catch (err) {
-        handleError(err);
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>Cloudflare Wirefilter Playground</title>
+    <style>
+      :root {
+        --cf-orange: #f38020;
+        --cf-blue: #2c7cb0;
+        --cf-dark-blue: #003682;
+        --cf-light-blue: #99c7e4;
+        --cf-gray: #6d6d6d;
+        --cf-light-gray: #f3f3f3;
       }
-    }
 
-    updateOutput();
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        max-width: 800px;
+        margin: 40px auto;
+        padding: 0 20px;
+        background: var(--cf-light-gray);
+      }
+      .container {
+        background: white;
+        padding: 30px;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      }
+      h1 {
+        color: var(--cf-dark-blue);
+        margin-top: 0;
+      }
+      .input-group {
+        position: relative;
+        margin-bottom: 20px;
+      }
 
-    input.addEventListener("keyup", updateOutput);
-  })().catch(handleError);
-</script>
+      /* Updated input styles for textarea */
+      textarea {
+        width: 100%;
+        padding: 12px;
+        font-size: 16px;
+        border: 2px solid #e5e7eb;
+        border-radius: 6px;
+        font-family: monospace;
+        box-sizing: border-box;
+        min-height: 60px;
+        resize: vertical;
+        line-height: 1.4;
+      }
+
+      textarea:focus {
+        outline: none;
+        border-color: var(--cf-blue);
+      }
+
+      .status-icon {
+        position: absolute;
+        right: 12px;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 24px;
+        height: 24px;
+        display: none;
+      }
+      .status-icon.success {
+        display: block;
+      }
+      .status-icon.error {
+        display: block;
+      }
+      .success-icon {
+        fill: #22c55e;
+        display: none;
+      }
+      .error-icon {
+        fill: #ff3a30;
+        display: none;
+      }
+      .status-icon.success .success-icon {
+        display: block;
+      }
+      .status-icon.error .error-icon {
+        display: block;
+      }
+      #output {
+        display: block;
+        width: 100%;
+        min-height: 200px;
+        padding: 12px;
+        background: var(--cf-dark-blue);
+        color: white;
+        border-radius: 6px;
+        font-family: monospace;
+        white-space: pre;
+        overflow-x: auto;
+        box-sizing: border-box;
+      }
+
+      /* Cloudflare logo styling */
+      .cf-logo {
+        display: flex;
+        align-items: center;
+        margin-bottom: 20px;
+      }
+      .cf-logo h1 {
+        margin-left: 10px;
+        margin-bottom: 0;
+      }
+
+      /* Usage instructions styling */
+      .instructions {
+        background-color: var(--cf-light-blue);
+        padding: 15px;
+        border-radius: 6px;
+        margin-top: 20px;
+      }
+
+      .instructions h3 {
+        margin-top: 0;
+        color: var(--cf-dark-blue);
+        margin-bottom: 10px;
+      }
+
+      .instructions h3:not(:first-child) {
+        margin-top: 20px;
+      }
+
+      .instructions code {
+        background-color: var(--cf-dark-blue);
+        color: white;
+        padding: 2px 4px;
+        border-radius: 3px;
+        font-family: monospace;
+      }
+
+      .instructions-toggle {
+        color: var(--cf-blue);
+        text-decoration: underline;
+        cursor: pointer;
+        user-select: none;
+        margin-bottom: 15px;
+        margin-top: 10px;
+        display: block;
+      }
+
+      .instructions-content {
+        display: none;
+        margin-top: 10px;
+      }
+
+      .instructions-content.show {
+        display: block;
+      }
+
+      .examples {
+        margin-top: 10px;
+      }
+
+      .example {
+        cursor: pointer;
+        padding: 4px 8px;
+        margin: 2px 0;
+        background-color: var(--cf-dark-blue);
+        color: white;
+        border-radius: 4px;
+        display: inline-block;
+        margin-right: 8px;
+        margin-bottom: 6px;
+        transition: background-color 0.2s, color 0.2s;
+      }
+
+      .example:hover {
+        background-color: var(--cf-orange);
+        color: white;
+      }
+
+      .instructions ul {
+        padding-left: 20px;
+      }
+
+      .instructions li {
+        margin-bottom: 8px;
+        line-height: 1.5;
+      }
+
+      .instructions li:last-child {
+        margin-bottom: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="cf-logo">
+        <h1>Cloudflare Wirefilter Playground</h1>
+      </div>
+
+      <div class="input-group">
+        <textarea id="input" placeholder="Enter your filter expression..."></textarea>
+        <svg class="status-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <path class="success-icon" d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z" />
+          <path
+            class="error-icon"
+            d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41z"
+          />
+        </svg>
+      </div>
+      <output for="input" id="output"></output>
+
+      <div class="instructions">
+        <div class="instructions-toggle">Show usage instructions</div>
+        <div class="instructions-content">
+          <h3>Filter Syntax</h3>
+          <p>Enter a filter expression using the Wireshark-like syntax. Examples:</p>
+          <div class="examples">
+            <div class="example">http.host == "example.com"</div>
+            <div class="example">http.host contains "cloudflare"</div>
+            <div class="example">ip.src == 192.168.1.1</div>
+            <div class="example">tcp.port in {80 443}</div>
+            <div class="example">http.request.uri.path ~ "^/api/.*"</div>
+          </div>
+
+          <h3>Transformation Functions</h3>
+          <p>Use transformation functions to modify field values:</p>
+          <div class="examples">
+            <div class="example">lower(http.host) == "example.com"</div>
+          </div>
+
+          <h3>Operators and grouping symbols</h3>
+          <ul>
+            <li><code>==</code> <code>!=</code> <code>eq</code> <code>ne</code> - Equality operators</li>
+            <li>
+              <code>&lt;</code> <code>&gt;</code> <code>&lt;=</code> <code>&gt;=</code> <code>lt</code> <code>gt</code>
+              <code>le</code> <code>ge</code> - Comparison operators
+            </li>
+            <li><code>contains</code> - String containment</li>
+            <li><code>wildcard</code> <code>strict wildcard</code> - Wildcard matching</li>
+            <li><code>~</code> <code>matches</code> - Regex matching</li>
+            <li><code>in</code> - Check if value is in a set</li>
+            <li><code>&&</code> <code>and</code> - Logical AND</li>
+            <li><code>||</code> <code>or</code> - Logical OR</li>
+            <li><code>^^</code> <code>xor</code> - Logical XOR</li>
+            <li><code>!</code> <code>not</code> - Logical NOT</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <script src="pkg/wirefilter_wasm.js"></script>
+    <script>
+      const input = document.getElementById("input");
+      const output = document.getElementById("output");
+      const statusIcon = document.querySelector(".status-icon");
+      const instructionsToggle = document.querySelector(".instructions-toggle");
+      const instructionsContent = document.querySelector(".instructions-content");
+      const examples = document.querySelectorAll(".example");
+
+      // Toggle instructions visibility
+      instructionsToggle.addEventListener("click", () => {
+        instructionsContent.classList.toggle("show");
+        instructionsToggle.textContent = instructionsContent.classList.contains("show")
+          ? "Hide usage instructions"
+          : "Show usage instructions";
+      });
+
+      // Add click handlers to example filters
+      examples.forEach((example) => {
+        example.addEventListener("click", () => {
+          input.value = example.textContent;
+          // Trigger an input event to update the output
+          input.dispatchEvent(new Event("input"));
+        });
+      });
+
+      // Handle input validation and updates
+      function handleError(err) {
+        console.error(err);
+        output.value = err.toString();
+        statusIcon.classList.remove("success");
+        statusIcon.classList.add("error");
+      }
+
+      (async () => {
+        delete WebAssembly.instantiateStreaming;
+
+        await wasm_bindgen("pkg/wirefilter_wasm_bg.wasm");
+
+        const scheme = new wasm_bindgen.WasmScheme();
+
+        function updateOutput() {
+          try {
+            let res = scheme.parse(input.value);
+            console.log(res);
+
+            // Check if the result is an empty object
+            if (JSON.stringify(res) === "{}") {
+              output.value = "success!";
+            } else {
+              output.value = JSON.stringify(res, null, 2);
+            }
+
+            statusIcon.classList.remove("error");
+            statusIcon.classList.add("success");
+          } catch (err) {
+            handleError(err);
+          }
+        }
+
+        updateOutput();
+
+        // Listen for input events instead of just keyup
+        input.addEventListener("input", updateOutput);
+      })().catch(handleError);
+    </script>
+  </body>
+</html>
